@@ -7,7 +7,6 @@ on:
 
 env:
   ANDROID_HOME: /opt/android-sdk
-  JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.14-7/x64
 
 jobs:
   build:
@@ -32,29 +31,22 @@ jobs:
           sudo mkdir -p $ANDROID_HOME
           sudo chmod 777 $ANDROID_HOME
           cd $ANDROID_HOME
-          curl -o sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          curl -sL -o sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q sdk.zip
-          mkdir -p cmdline-tools
-          mv cmdline-tools latest 2>/dev/null || true
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34" || yes | $ANDROID_HOME/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34"
+          yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34" 2>/dev/null || \
+          (mkdir -p latest && mv cmdline-tools/* latest/ 2>/dev/null && yes | $ANDROID_HOME/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34")
 
       - name: 安装 Flet
         run: pip install flet
 
-      - name: 复制数据库文件
-        run: |
-          if [ ! -f flet_app/inventory.db ]; then
-            cp inventory.db flet_app/ 2>/dev/null || true
-          fi
-          ls -la flet_app/inventory.db
+      - name: 检查数据库
+        run: ls -la inventory.db
 
       - name: 编译 APK
-        run: |
-          cd flet_app
-          flet build apk --org com.dfpos
+        run: flet build apk --org com.dfpos
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
           name: 进销存查询-APK
-          path: flet_app/build/apk/release/*.apk
+          path: build/apk/release/*.apk
