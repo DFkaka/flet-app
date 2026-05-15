@@ -21,6 +21,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.27.4'
+
       - name: 安装 Python
         uses: actions/setup-python@v5
         with:
@@ -43,7 +49,9 @@ jobs:
         run: ls -la inventory.db
 
       - name: 编译 APK
-        run: flet build apk --org com.dfpos
+        run: |
+          flutter config --android-sdk $ANDROID_HOME
+          flet build apk --org com.dfpos
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
