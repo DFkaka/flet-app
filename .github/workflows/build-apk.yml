@@ -51,8 +51,13 @@ jobs:
       - name: 编译 APK
         run: echo "y" | flet build apk --org com.dfpos
 
+      - name: 查找 APK
+        run: find . -name "*.apk" | head -5
+
       - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
           name: 进销存查询-APK
-          path: build/apk/release/*.apk
+          path: |
+            build/apk/**/*.apk
+            build/**/*.apk
