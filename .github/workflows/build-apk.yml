@@ -7,6 +7,7 @@ on:
 
 env:
   ANDROID_HOME: /opt/android-sdk
+  ANDROID_SDK_ROOT: /opt/android-sdk
   FLUTTER_GIT_URL: https://github.com/flutter/flutter.git
 
 jobs:
@@ -22,10 +23,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 安装 Flutter 3.41.7
+      - name: 安装 Flutter
         run: |
           git clone --depth 1 -b stable https://github.com/flutter/flutter.git $HOME/flutter
           echo "$HOME/flutter/bin" >> $GITHUB_PATH
+          $HOME/flutter/bin/flutter config --android-sdk $ANDROID_HOME
+          $HOME/flutter/bin/flutter config --no-analytics
 
       - name: 安装 Python
         uses: actions/setup-python@v5
@@ -39,18 +42,14 @@ jobs:
           cd $ANDROID_HOME
           curl -sL -o sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q sdk.zip
-          yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34" 2>/dev/null || \
-          (mkdir -p latest && mv cmdline-tools/* latest/ 2>/dev/null && yes | $ANDROID_HOME/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34")
+          yes | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34" 2>&1 | tail -3
+          yes | $HOME/flutter/bin/flutter doctor --android-licenses 2>&1 | tail -5
 
       - name: 安装 Flet
         run: pip install flet
 
       - name: 编译 APK
-        run: |
-          flutter config --android-sdk $ANDROID_HOME
-          flutter config --no-analytics
-          flutter doctor --android-licenses 2>/dev/null || true
-          flet build apk --org com.dfpos
+        run: echo "y" | flet build apk --org com.dfpos
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
