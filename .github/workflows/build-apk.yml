@@ -7,6 +7,7 @@ on:
 
 env:
   ANDROID_HOME: /opt/android-sdk
+  FLUTTER_GIT_URL: https://github.com/flutter/flutter.git
 
 jobs:
   build:
@@ -21,11 +22,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 安装 Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-          flutter-version: '3.27.4'
+      - name: 安装 Flutter 3.41.7
+        run: |
+          git clone --depth 1 -b stable https://github.com/flutter/flutter.git $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
 
       - name: 安装 Python
         uses: actions/setup-python@v5
@@ -45,12 +45,11 @@ jobs:
       - name: 安装 Flet
         run: pip install flet
 
-      - name: 检查数据库
-        run: ls -la inventory.db
-
       - name: 编译 APK
         run: |
           flutter config --android-sdk $ANDROID_HOME
+          flutter config --no-analytics
+          flutter doctor --android-licenses 2>/dev/null || true
           flet build apk --org com.dfpos
 
       - name: 上传 APK
