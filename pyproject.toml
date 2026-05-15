@@ -1,0 +1,20 @@
+[project]
+name = "dfpos-inventory"
+version = "1.0.0"
+description = "进销存查询 App"
+requires-python = ">=3.10"
+dependencies = [
+    "flet>=0.26.0",
+]
+
+[tool.flet]
+org = "com.dfpos"
+app_name = "进销存查询"
+description = "进销存数据查询与库存管理"
+sdk = ">=3.2.0"
+
+[tool.flet.assets]
+include = ["*.db"]
+
+[tool.flet.icons]
+android = "icon.png"
