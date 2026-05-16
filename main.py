@@ -65,12 +65,27 @@ def main(page: ft.Page):
     # 初始化数据库
     db_path = _find_db()
     if not db_path:
-        page.add(ft.Container(
-            ft.Text('未找到数据库文件 inventory.db', size=16, color=C.RED_600),
-            padding=50,
-        ))
-        page.update()
-        return
+        # 创建空数据库（确保 App 能启动）
+        empty_path = '/data/data/com.dfpos.dfpos_inventory/files/inventory_app.db'
+        os.makedirs(os.path.dirname(empty_path), exist_ok=True)
+        conn = sqlite3.connect(empty_path)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY, code TEXT, name TEXT, barcode TEXT, retail_price REAL, cost_price REAL);
+            CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE IF NOT EXISTS purchase_orders (id INTEGER PRIMARY KEY, order_no TEXT, supplier TEXT, order_date TEXT, status TEXT, total_amount REAL, payment_status TEXT);
+            CREATE TABLE IF NOT EXISTS sales_orders (id INTEGER PRIMARY KEY, order_no TEXT, customer TEXT, order_date TEXT, status TEXT, total_amount REAL, payment_status TEXT);
+            CREATE TABLE IF NOT EXISTS inventory (product_id INTEGER PRIMARY KEY, quantity REAL, safety_stock REAL);
+            CREATE TABLE IF NOT EXISTS purchase_order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product_id INTEGER, quantity REAL, unit_price REAL, subtotal REAL);
+            CREATE TABLE IF NOT EXISTS sales_order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product_id INTEGER, quantity REAL, unit_price REAL, subtotal REAL);
+            CREATE TABLE IF NOT EXISTS purchase_payments (id INTEGER PRIMARY KEY, order_id INTEGER, payer TEXT, payment_date TEXT, amount REAL);
+            CREATE TABLE IF NOT EXISTS sales_payments (id INTEGER PRIMARY KEY, order_id INTEGER, payer TEXT, payment_date TEXT, amount REAL);
+            CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, code TEXT, name TEXT);
+            CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, code TEXT, name TEXT);
+        """)
+        _ensure_tables(empty_path)
+        conn.commit()
+        conn.close()
+        db_path = empty_path
     set_db_path(db_path)
 
     # 容器：页面标题
