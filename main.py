@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 import traceback
 import flet as ft
+from components.theme import C, I
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -77,9 +78,9 @@ def main(page: ft.Page):
         if not db_path:
             page.add(ft.Container(
                 content=ft.Column([
-                    ft.Icon(ft.icons.ERROR_OUTLINE, size=64, color=ft.colors.RED_600),
+                    ft.Icon(I.ERROR_OUTLINE, size=64, color=C.RED_600),
                     ft.Text('找不到数据库文件', size=20, weight=ft.FontWeight.BOLD),
-                    ft.Text('请将 inventory.db 放到应用目录', size=14, color=ft.colors.GREY_600),
+                    ft.Text('请将 inventory.db 放到应用目录', size=14, color=C.GREY_600),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
                 padding=50, alignment=ft.alignment.Alignment(0, 0), expand=True,
             ))
@@ -122,19 +123,19 @@ def main(page: ft.Page):
             else:
                 view = DashboardView(page, navigate).build()
 
-            b1 = ft.IconButton(icon=ft.icons.DASHBOARD, icon_size=22)
+            b1 = ft.IconButton(icon=I.DASHBOARD, icon_size=22)
             b1.on_click = lambda _: page.go('/dashboard')
-            b2 = ft.IconButton(icon=ft.icons.SEARCH, icon_size=22)
+            b2 = ft.IconButton(icon=I.SEARCH, icon_size=22)
             b2.on_click = lambda _: page.go('/products')
-            b3 = ft.IconButton(icon=ft.icons.INVENTORY, icon_size=22)
+            b3 = ft.IconButton(icon=I.INVENTORY, icon_size=22)
             b3.on_click = lambda _: page.go('/inventory')
-            b4 = ft.IconButton(icon=ft.icons.SHOPPING_CART, icon_size=22)
+            b4 = ft.IconButton(icon=I.SHOPPING_CART, icon_size=22)
             b4.on_click = lambda _: page.go('/purchases')
-            b5 = ft.IconButton(icon=ft.icons.TRENDING_UP, icon_size=22)
+            b5 = ft.IconButton(icon=I.TRENDING_UP, icon_size=22)
             b5.on_click = lambda _: page.go('/sales')
             view.bottom_appbar = ft.BottomAppBar(
                 content=ft.Row([b1, b2, b3, b4, b5], alignment=ft.MainAxisAlignment.SPACE_AROUND),
-                bgcolor=ft.colors.WHITE,
+                bgcolor=C.WHITE,
             )
             page.views.clear()
             page.views.append(view)
@@ -147,9 +148,9 @@ def main(page: ft.Page):
         # 显示错误信息，防止闪退
         page.add(ft.Container(
             content=ft.Column([
-                ft.Icon(ft.icons.ERROR, size=48, color=ft.colors.RED_600),
+                ft.Icon(I.ERROR, size=48, color=C.RED_600),
                 ft.Text('启动失败', size=18, weight=ft.FontWeight.BOLD),
-                ft.Text(str(e), size=12, color=ft.colors.RED_700, selectable=True),
+                ft.Text(str(e), size=12, color=C.RED_700, selectable=True),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
             padding=30, expand=True, alignment=ft.alignment.Alignment(0, 0),
         ))

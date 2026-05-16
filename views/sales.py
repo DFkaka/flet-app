@@ -1,4 +1,5 @@
 import flet as ft
+from components.theme import C, I
 from models import get_sales_orders, get_sales_detail
 from components.data_list import data_row, empty_state, detail_row, section_header, status_badge
 from components.app_bar import create_app_bar
@@ -11,15 +12,15 @@ class SalesView:
         self.navigate = navigate
         today = date.today().strftime('%Y-%m-%d')
         self.date_from = ft.TextField(
-            hint_text='开始日期', prefix_icon=ft.icons.DATE_RANGE,
+            hint_text='开始日期', prefix_icon=I.DATE_RANGE,
             value=today, height=40, text_size=14, expand=1,
         )
         self.date_to = ft.TextField(
-            hint_text='结束日期', prefix_icon=ft.icons.DATE_RANGE,
+            hint_text='结束日期', prefix_icon=I.DATE_RANGE,
             value=today, height=40, text_size=14, expand=1,
         )
         self.customer_field = ft.TextField(
-            hint_text='客户名称/编码', prefix_icon=ft.icons.SEARCH,
+            hint_text='客户名称/编码', prefix_icon=I.SEARCH,
             height=40, text_size=14, expand=1,
         )
         self.customer_field.on_change = self.on_filter_change
@@ -32,7 +33,7 @@ class SalesView:
             height=40, text_size=14, expand=1,
         )
         self.list_container = ft.Container(expand=True)
-        self.search_btn = ft.IconButton(icon=ft.icons.SEARCH, icon_size=22)
+        self.search_btn = ft.IconButton(icon=I.SEARCH, icon_size=22)
         self.search_btn.on_click = self.on_search_click
 
     def on_filter_change(self, e):
@@ -112,7 +113,7 @@ class SalesDetailView:
                         ft.Text(
                             f"数量: {item.get('quantity', 0)}  x  单价: ¥{item.get('unit_price', 0):.2f}"
                             f"  =  ¥{item.get('subtotal', 0):.2f}",
-                            size=12, color=ft.colors.GREY_600,
+                            size=12, color=C.GREY_600,
                         ),
                     ]),
                     padding=ft.Padding(left=8, top=8, right=8, bottom=8),

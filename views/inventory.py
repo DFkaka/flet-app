@@ -1,4 +1,5 @@
 import flet as ft
+from components.theme import C, I
 from models import get_inventory_list, get_inventory_detail, adjust_inventory, get_inventory_log
 from components.data_list import data_row, empty_state, detail_row, section_header
 from components.app_bar import create_app_bar
@@ -31,7 +32,7 @@ class InventoryView:
             )
             row.on_click = lambda _, pid=p['id']: self.navigate('inventory_detail', pid)
             items.append(row)
-        content_list = [ft.Text(f'{title} ({len(results)} 项)', size=13, color=ft.colors.GREY_600)]
+        content_list = [ft.Text(f'{title} ({len(results)} 项)', size=13, color=C.GREY_600)]
         content_list.extend(items if items else [empty_state('暂无库存数据')])
         self.list_container.content = ft.Column(content_list, spacing=0)
         self.page.update()
@@ -70,19 +71,19 @@ class InventoryDetailView:
         self.remark_field = ft.TextField(
             label='调整原因', width=200, height=45,
         )
-        self.result_text = ft.Text('', color=ft.colors.GREEN_700)
+        self.result_text = ft.Text('', color=C.GREEN_700)
 
     def on_adjust(self, e):
         try:
             delta = int(self.adjust_field.value or '0')
         except ValueError:
             self.result_text.value = '请输入有效数字'
-            self.result_text.color = ft.colors.RED_600
+            self.result_text.color = C.RED_600
             self.page.update()
             return
         if delta == 0:
             self.result_text.value = '调整数量不能为 0'
-            self.result_text.color = ft.colors.RED_600
+            self.result_text.color = C.RED_600
             self.page.update()
             return
         remark = self.remark_field.value or ''
@@ -90,12 +91,12 @@ class InventoryDetailView:
         if ok:
             sign = '+' if delta > 0 else ''
             self.result_text.value = f'调整成功！库存已 {sign}{delta}'
-            self.result_text.color = ft.colors.GREEN_700
+            self.result_text.color = C.GREEN_700
             self.adjust_field.value = ''
             self.remark_field.value = ''
         else:
             self.result_text.value = '调整失败（库存不能为负）'
-            self.result_text.color = ft.colors.RED_600
+            self.result_text.color = C.RED_600
         self.page.update()
 
     def build(self) -> ft.View:
@@ -117,8 +118,8 @@ class InventoryDetailView:
                 subtitle=f"{log['remark'] or '无备注'}  |  {log['created_at']}",
             ))
 
-        adjust_btn = ft.ElevatedButton('执行调整', icon=ft.icons.SAVE,
-                                      color=ft.colors.WHITE, bgcolor=ft.colors.BLUE_700)
+        adjust_btn = ft.ElevatedButton('执行调整', icon=I.SAVE,
+                                      color=C.WHITE, bgcolor=C.BLUE_700)
         adjust_btn.on_click = self.on_adjust
 
         detail_section = [

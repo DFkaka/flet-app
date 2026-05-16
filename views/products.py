@@ -1,4 +1,5 @@
 import flet as ft
+from components.theme import C, I
 from models import search_products, get_product_detail
 from components.data_list import data_row, empty_state, detail_row, section_header
 from components.app_bar import create_app_bar
@@ -10,7 +11,7 @@ class ProductsView:
         self.navigate = navigate
         self.search_field = ft.TextField(
             hint_text='搜索商品（名称/编码/条码）',
-            prefix_icon=ft.icons.SEARCH,
+            prefix_icon=I.SEARCH,
             border_radius=10,
             text_size=14,
             height=45,
