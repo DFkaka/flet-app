@@ -35,30 +35,23 @@ def _ensure_tables(db_path: str):
 
 
 def _find_db() -> str:
-    # Android: 优先从 APK 内置复制
     app_dir = '/data/data/com.dfpos.dfpos_inventory/files'
     cached = os.path.join(app_dir, DB_FILENAME)
     if os.path.exists(cached):
         return cached
-
     bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'inventory.db')
     if os.path.exists(bundled):
         os.makedirs(app_dir, exist_ok=True)
         shutil.copy2(bundled, cached)
         _ensure_tables(cached)
         return cached
-
-    # 桌面：共享数据库
     shared = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'inventory.db')
     if os.path.exists(shared):
         _ensure_tables(shared)
         return shared
-
-    # 本地副本
     local = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'inventory.db')
     if os.path.exists(local):
         return local
-
     return ''
 
 
@@ -69,80 +62,88 @@ def main(page: ft.Page):
     page.window.width = 400
     page.window.height = 780
 
-    # 直接显示启动状态
-    status = ft.Text('加载中...', size=16)
-    page.add(status)
-    page.update()
-
-    # 查找数据库
+    # 初始化数据库
     db_path = _find_db()
-    status.value = f'数据库: {"找到" if db_path else "未找到"}'
-    page.update()
-
     if not db_path:
-        status.value = '未找到数据库文件，请将 inventory.db 放入应用目录'
+        page.add(ft.Container(
+            ft.Text('未找到数据库文件 inventory.db', size=16, color=C.RED_600),
+            padding=50,
+        ))
         page.update()
         return
-
     set_db_path(db_path)
 
-    # 去除测试文本
-    page.clean()
+    # 容器：页面标题
+    appbar = ft.Container(
+        content=ft.Text('进销存查询', size=18, weight=ft.FontWeight.BOLD, color=C.WHITE),
+        padding=15, bgcolor=C.BLUE_700, alignment=ft.alignment.center,
+    )
 
-    detail_id_store: dict = {}
+    # 容器：内容区域
+    content_area = ft.Container(expand=True, padding=10)
 
-    def navigate(route: str, param=None):
-        routes = ('product_detail', 'inventory_detail', 'purchase_detail', 'sales_detail')
-        if route in routes and param is not None:
-            detail_id_store['value'] = param
-        page.go(f'/{route}' if not route.startswith('/') else route)
+    # 底部导航
+    current_tab = 0
 
-    def route_change(e):
-        route = page.route
-        detail_id = detail_id_store.get('value')
-
-        if route in ('/', '/dashboard'):
-            view = DashboardView(page, navigate).build()
-        elif route == '/products':
-            view = ProductsView(page, navigate).build()
-        elif route == '/product_detail' and detail_id is not None:
-            view = ProductDetailView(page, detail_id).build()
-        elif route == '/inventory':
-            view = InventoryView(page, navigate).build()
-        elif route == '/inventory_detail' and detail_id is not None:
-            view = InventoryDetailView(page, detail_id).build()
-        elif route == '/purchases':
-            view = PurchasesView(page, navigate).build()
-        elif route == '/purchase_detail' and detail_id is not None:
-            view = PurchaseDetailView(page, detail_id).build()
-        elif route == '/sales':
-            view = SalesView(page, navigate).build()
-        elif route == '/sales_detail' and detail_id is not None:
-            view = SalesDetailView(page, detail_id).build()
-        else:
-            view = DashboardView(page, navigate).build()
-
-        page.views.clear()
-        page.views.append(view)
-
-        b1 = ft.IconButton(icon=I.DASHBOARD, icon_size=22)
-        b1.on_click = lambda _: page.go('/dashboard')
-        b2 = ft.IconButton(icon=I.SEARCH, icon_size=22)
-        b2.on_click = lambda _: page.go('/products')
-        b3 = ft.IconButton(icon=I.INVENTORY, icon_size=22)
-        b3.on_click = lambda _: page.go('/inventory')
-        b4 = ft.IconButton(icon=I.SHOPPING_CART, icon_size=22)
-        b4.on_click = lambda _: page.go('/purchases')
-        b5 = ft.IconButton(icon=I.TRENDING_UP, icon_size=22)
-        b5.on_click = lambda _: page.go('/sales')
-        view.bottom_appbar = ft.BottomAppBar(
-            content=ft.Row([b1, b2, b3, b4, b5], alignment=ft.MainAxisAlignment.SPACE_AROUND),
-            bgcolor=C.WHITE,
-        )
+    def switch_tab(index):
+        nonlocal current_tab
+        current_tab = index
+        routes = ['/dashboard', '/products', '/inventory', '/purchases', '/sales']
+        page.route = routes[index]
+        # 清除旧内容并加载新页面
+        content_area.content = None
         page.update()
 
-    page.on_route_change = route_change
-    page.go('/dashboard')
+        # 构建新视图
+        try:
+            if index == 0:
+                v = DashboardView(page, lambda r, p=None: None).build()
+            elif index == 1:
+                v = ProductsView(page, lambda r, p=None: None).build()
+            elif index == 2:
+                v = InventoryView(page, lambda r, p=None: None).build()
+            elif index == 3:
+                v = PurchasesView(page, lambda r, p=None: None).build()
+            elif index == 4:
+                v = SalesView(page, lambda r, p=None: None).build()
+            # 提取实际内容（跳过 AppBar，只取内容容器）
+            content_area.content = ft.Column(
+                [c for c in (v.controls or []) if not isinstance(c, ft.AppBar)],
+                expand=True, scroll=ft.ScrollMode.AUTO,
+            )
+            page.update()
+        except Exception as ex:
+            import traceback
+            content_area.content = ft.Column([
+                ft.Text(f'错误: {type(ex).__name__}: {ex}', color=C.RED_600, selectable=True),
+                ft.Text(traceback.format_exc(), size=10, color=C.GREY_600, selectable=True),
+            ], scroll=ft.ScrollMode.AUTO)
+            page.update()
+
+    nav_icons = [I.DASHBOARD, I.SEARCH, I.INVENTORY, I.SHOPPING_CART, I.TRENDING_UP]
+    nav_btns = []
+    for i, icon in enumerate(nav_icons):
+        btn = ft.IconButton(icon=icon, icon_size=22)
+        btn.on_click = lambda _, idx=i: switch_tab(idx)
+        nav_btns.append(btn)
+
+    navbar = ft.Container(
+        content=ft.Row(nav_btns, alignment=ft.MainAxisAlignment.SPACE_AROUND),
+        padding=5, bgcolor=C.WHITE, border=ft.border.only(top=ft.BorderSide(1, C.GREY_300)),
+    )
+
+    # 组装页面
+    page.add(
+        ft.Column([
+            appbar,
+            content_area,
+            navbar,
+        ], spacing=0, expand=True)
+    )
+    page.update()
+
+    # 默认加载看板
+    switch_tab(0)
 
 
 ft.app(target=main)
