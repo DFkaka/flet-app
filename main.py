@@ -1,58 +1,73 @@
-"""进销存查询 App — Flet Android 主入口"""
+"""进销存查询 App — 远程连接版"""
 
 import os
 import sys
-import shutil
-import sqlite3
 import flet as ft
 from components.theme import C, I
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 不提前导入 views，等连接成功后导入（确保使用远程数据层）
 
-from db import set_db_path
-from views.dashboard import DashboardView
-from views.products import ProductsView, ProductDetailView
-from views.inventory import InventoryView, InventoryDetailView
-from views.purchases import PurchasesView, PurchaseDetailView
-from views.sales import SalesView, SalesDetailView
-
-DB_FILENAME = 'inventory_app.db'
+from api_client import api
 
 
-def _ensure_tables(db_path: str):
-    conn = sqlite3.connect(db_path)
-    conn.execute("""CREATE TABLE IF NOT EXISTS inventory_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_id INTEGER NOT NULL,
-        delta REAL NOT NULL,
-        before_qty REAL NOT NULL,
-        after_qty REAL NOT NULL,
-        remark TEXT,
-        created_at TEXT
-    )""")
-    conn.commit()
-    conn.close()
+def show_login(page: ft.Page, on_success):
+    """显示登录设置界面"""
+    host_field = ft.TextField(label='电脑 IP 地址', value='192.168.1.', hint_text='如 192.168.1.100')
+    port_field = ft.TextField(label='端口号', value='5000', hint_text='Flask 默认端口 5000')
+    status_text = ft.Text('', size=13, color=C.RED_600)
+    btn = ft.ElevatedButton('连接', icon=I.CLOUD, height=48)
+    loading = ft.ProgressBar(width=200, visible=False)
 
+    def on_connect(e):
+        host = host_field.value.strip()
+        port = port_field.value.strip()
+        if not host or not port:
+            status_text.value = '请输入 IP 和端口'
+            page.update()
+            return
+        loading.visible = True
+        btn.disabled = True
+        status_text.value = '连接中...'
+        status_text.color = C.GREY_600
+        page.update()
 
-def _find_db() -> str:
-    app_dir = '/data/data/com.dfpos.dfpos_inventory/files'
-    cached = os.path.join(app_dir, DB_FILENAME)
-    if os.path.exists(cached):
-        return cached
-    bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'inventory.db')
-    if os.path.exists(bundled):
-        os.makedirs(app_dir, exist_ok=True)
-        shutil.copy2(bundled, cached)
-        _ensure_tables(cached)
-        return cached
-    shared = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'inventory.db')
-    if os.path.exists(shared):
-        _ensure_tables(shared)
-        return shared
-    local = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'inventory.db')
-    if os.path.exists(local):
-        return local
-    return ''
+        try:
+            api.save_settings(host, int(port), 'admin', 'admin')
+            if api.logged_in:
+                on_success()
+            else:
+                status_text.value = '连接失败，请检查 IP 和端口'
+                status_text.color = C.RED_600
+                loading.visible = False
+                btn.disabled = False
+                page.update()
+        except Exception as ex:
+            status_text.value = f'连接失败: {ex}'
+            status_text.color = C.RED_600
+            loading.visible = False
+            btn.disabled = False
+            page.update()
+
+    btn.on_click = on_connect
+
+    page.add(
+        ft.Container(
+            ft.Column([
+                ft.Icon(I.COMPUTER, size=64, color=C.BLUE_700),
+                ft.Text('连接电脑数据库', size=22, weight=ft.FontWeight.BOLD),
+                ft.Text('输入电脑上 Flask 服务的 IP 和端口', size=13, color=C.GREY_600),
+                ft.Divider(height=20),
+                host_field,
+                port_field,
+                ft.Divider(height=10),
+                btn,
+                loading,
+                status_text,
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+            padding=30, expand=True,
+        )
+    )
+    page.update()
 
 
 def main(page: ft.Page):
@@ -62,103 +77,87 @@ def main(page: ft.Page):
     page.window.width = 400
     page.window.height = 780
 
-    # 初始化数据库
-    db_path = _find_db()
-    if not db_path:
-        # 创建空数据库（确保 App 能启动）
-        empty_path = '/data/data/com.dfpos.dfpos_inventory/files/inventory_app.db'
-        os.makedirs(os.path.dirname(empty_path), exist_ok=True)
-        conn = sqlite3.connect(empty_path)
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY, code TEXT, name TEXT, barcode TEXT, retail_price REAL, cost_price REAL);
-            CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY, name TEXT);
-            CREATE TABLE IF NOT EXISTS purchase_orders (id INTEGER PRIMARY KEY, order_no TEXT, supplier TEXT, order_date TEXT, status TEXT, total_amount REAL, payment_status TEXT);
-            CREATE TABLE IF NOT EXISTS sales_orders (id INTEGER PRIMARY KEY, order_no TEXT, customer TEXT, order_date TEXT, status TEXT, total_amount REAL, payment_status TEXT);
-            CREATE TABLE IF NOT EXISTS inventory (product_id INTEGER PRIMARY KEY, quantity REAL, safety_stock REAL);
-            CREATE TABLE IF NOT EXISTS purchase_order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product_id INTEGER, quantity REAL, unit_price REAL, subtotal REAL);
-            CREATE TABLE IF NOT EXISTS sales_order_items (id INTEGER PRIMARY KEY, order_id INTEGER, product_id INTEGER, quantity REAL, unit_price REAL, subtotal REAL);
-            CREATE TABLE IF NOT EXISTS purchase_payments (id INTEGER PRIMARY KEY, order_id INTEGER, payer TEXT, payment_date TEXT, amount REAL);
-            CREATE TABLE IF NOT EXISTS sales_payments (id INTEGER PRIMARY KEY, order_id INTEGER, payer TEXT, payment_date TEXT, amount REAL);
-            CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY, code TEXT, name TEXT);
-            CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY, code TEXT, name TEXT);
-        """)
-        _ensure_tables(empty_path)
-        conn.commit()
-        conn.close()
-        db_path = empty_path
-    set_db_path(db_path)
+    # 尝试自动连接
+    connected = api.load_settings()
 
-    # 容器：页面标题
-    appbar = ft.Container(
-        content=ft.Text('进销存查询', size=18, weight=ft.FontWeight.BOLD, color=C.WHITE),
-        padding=15, bgcolor=C.BLUE_700, alignment=ft.alignment.center,
-    )
+    if not connected:
+        show_login(page, lambda: start_app(page))
+        return
 
-    # 容器：内容区域
-    content_area = ft.Container(expand=True, padding=10)
+    start_app(page)
 
-    # 底部导航
-    current_tab = 0
 
-    def switch_tab(index):
-        nonlocal current_tab
-        current_tab = index
-        routes = ['/dashboard', '/products', '/inventory', '/purchases', '/sales']
-        page.route = routes[index]
-        # 清除旧内容并加载新页面
-        content_area.content = None
+def start_app(page: ft.Page):
+    """连接成功后启动主程序"""
+    # 替换 models 为远程版本（views 中 from models import xxx 会取到这里）
+    import remote_models
+    sys.modules['models'] = remote_models
+
+    # 清除登录页面
+    page.clean()
+
+    # 延迟导入视图（确保它们拿到的是 remote_models）
+    from views.dashboard import DashboardView
+    from views.products import ProductsView, ProductDetailView
+    from views.inventory import InventoryView, InventoryDetailView
+    from views.purchases import PurchasesView, PurchaseDetailView
+    from views.sales import SalesView, SalesDetailView
+
+    # 状态
+    detail_id_store: dict = {}
+
+    def navigate(route: str, param=None):
+        if route in ('product_detail', 'inventory_detail', 'purchase_detail', 'sales_detail'):
+            if param is not None:
+                detail_id_store['value'] = param
+        page.go(f'/{route}' if not route.startswith('/') else route)
+
+    def route_change(e):
+        route = page.route
+        detail_id = detail_id_store.get('value')
+
+        if route in ('/', '/dashboard'):
+            view = DashboardView(page, navigate).build()
+        elif route == '/products':
+            view = ProductsView(page, navigate).build()
+        elif route == '/product_detail' and detail_id is not None:
+            view = ProductDetailView(page, detail_id).build()
+        elif route == '/inventory':
+            view = InventoryView(page, navigate).build()
+        elif route == '/inventory_detail' and detail_id is not None:
+            view = InventoryDetailView(page, detail_id).build()
+        elif route == '/purchases':
+            view = PurchasesView(page, navigate).build()
+        elif route == '/purchase_detail' and detail_id is not None:
+            view = PurchaseDetailView(page, detail_id).build()
+        elif route == '/sales':
+            view = SalesView(page, navigate).build()
+        elif route == '/sales_detail' and detail_id is not None:
+            view = SalesDetailView(page, detail_id).build()
+        else:
+            view = DashboardView(page, navigate).build()
+
+        page.views.clear()
+        page.views.append(view)
+
+        b1 = ft.IconButton(icon=I.DASHBOARD, icon_size=22)
+        b1.on_click = lambda _: page.go('/dashboard')
+        b2 = ft.IconButton(icon=I.SEARCH, icon_size=22)
+        b2.on_click = lambda _: page.go('/products')
+        b3 = ft.IconButton(icon=I.INVENTORY, icon_size=22)
+        b3.on_click = lambda _: page.go('/inventory')
+        b4 = ft.IconButton(icon=I.SHOPPING_CART, icon_size=22)
+        b4.on_click = lambda _: page.go('/purchases')
+        b5 = ft.IconButton(icon=I.TRENDING_UP, icon_size=22)
+        b5.on_click = lambda _: page.go('/sales')
+        view.bottom_appbar = ft.BottomAppBar(
+            content=ft.Row([b1, b2, b3, b4, b5], alignment=ft.MainAxisAlignment.SPACE_AROUND),
+            bgcolor=C.WHITE,
+        )
         page.update()
 
-        # 构建新视图
-        try:
-            if index == 0:
-                v = DashboardView(page, lambda r, p=None: None).build()
-            elif index == 1:
-                v = ProductsView(page, lambda r, p=None: None).build()
-            elif index == 2:
-                v = InventoryView(page, lambda r, p=None: None).build()
-            elif index == 3:
-                v = PurchasesView(page, lambda r, p=None: None).build()
-            elif index == 4:
-                v = SalesView(page, lambda r, p=None: None).build()
-            # 提取实际内容（跳过 AppBar，只取内容容器）
-            content_area.content = ft.Column(
-                [c for c in (v.controls or []) if not isinstance(c, ft.AppBar)],
-                expand=True, scroll=ft.ScrollMode.AUTO,
-            )
-            page.update()
-        except Exception as ex:
-            import traceback
-            content_area.content = ft.Column([
-                ft.Text(f'错误: {type(ex).__name__}: {ex}', color=C.RED_600, selectable=True),
-                ft.Text(traceback.format_exc(), size=10, color=C.GREY_600, selectable=True),
-            ], scroll=ft.ScrollMode.AUTO)
-            page.update()
-
-    nav_icons = [I.DASHBOARD, I.SEARCH, I.INVENTORY, I.SHOPPING_CART, I.TRENDING_UP]
-    nav_btns = []
-    for i, icon in enumerate(nav_icons):
-        btn = ft.IconButton(icon=icon, icon_size=22)
-        btn.on_click = lambda _, idx=i: switch_tab(idx)
-        nav_btns.append(btn)
-
-    navbar = ft.Container(
-        content=ft.Row(nav_btns, alignment=ft.MainAxisAlignment.SPACE_AROUND),
-        padding=5, bgcolor=C.WHITE, border=ft.border.only(top=ft.BorderSide(1, C.GREY_300)),
-    )
-
-    # 组装页面
-    page.add(
-        ft.Column([
-            appbar,
-            content_area,
-            navbar,
-        ], spacing=0, expand=True)
-    )
-    page.update()
-
-    # 默认加载看板
-    switch_tab(0)
+    page.on_route_change = route_change
+    page.go('/dashboard')
 
 
 ft.app(target=main)
